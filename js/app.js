@@ -306,6 +306,15 @@ function kundenTreffer(suche) {
   return daten.kunden.filter((k) => `${k.firma} ${k.name} ${k.ort} ${k.strasse}`.toLowerCase().includes(s));
 }
 
+// Sagt auf der Rechnung, ob und warum sie im Kassenbuch steht. Dort landet nur Bargeld.
+function kassenHinweis(r) {
+  if (r.typ === 'storno') return 'Stornorechnungen werden nicht automatisch ins Kassenbuch gebucht.';
+  const eintrag = daten.kasse.find((e) => e.rechnungNr === r.nr);
+  if (eintrag) return `Kassenbuch: gebucht als Eintrag Nr. ${eintrag.nr} am ${datumDeutsch(eintrag.datum)}${eintrag.storniert ? ' (storniert)' : ''}.`;
+  if (!r.bezahlt && !r.eingang) return 'Kassenbuch: kein Eintrag, die Rechnung ist noch offen.';
+  return `Kassenbuch: kein Eintrag, weil per ${ZAHLARTEN[(r.eingang || r).zahlart].text} bezahlt wurde. Ins Kassenbuch kommt nur Bargeld.`;
+}
+
 function seiteRechnung(nr) {
   const r = daten.rechnungen.find((x) => x.nr === nr);
   if (!r) return '<p>Diese Rechnung gibt es nicht.</p>';
@@ -338,6 +347,7 @@ function seiteRechnung(nr) {
       <div class="tabelle-rahmen"><table><tr><th>Leistung</th><th class="betrag">Menge</th><th class="betrag">Einzelpreis</th><th class="betrag">Netto</th></tr>
       ${r.positionen.map((p) => `<tr><td>${h(p.bezeichnung)}</td><td class="betrag">${String(p.menge).replace('.', ',')} ${EINHEITEN[p.einheit]}</td><td class="betrag">${euro(p.einzelpreisCent)}</td><td class="betrag">${euro(vz * zeilenNetto(p.menge, p.einzelpreisCent))}</td></tr>`).join('')}</table></div>
       <table class="summen"><tr><td>Summe netto</td><td>${euro(vz * s.netto)}</td></tr><tr><td>Umsatzsteuer 19 %</td><td>${euro(vz * s.ust)}</td></tr><tr><td><b>Rechnungsbetrag</b></td><td><b>${euro(vz * s.brutto)}</b></td></tr></table>
+      <p class="klein">${kassenHinweis(r)}</p>
     </div>
     <div class="karte">
       <h2>PDF mit eingebetteter E-Rechnung (ZUGFeRD)</h2>
