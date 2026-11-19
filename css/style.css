@@ -1,0 +1,380 @@
+:root {
+  --radius: 10px;
+  --taste: 44px;
+  --schrift: 16px;
+}
+[data-design='werkstatt'] {
+  --bg: #1f1f1e;
+  --flaeche: #2c2c2a;
+  --flaeche2: #3a3a37;
+  --text: #f1efe8;
+  --text2: #b4b2a9;
+  --rand: #55544f;
+  --akzent: #ef9f27;
+  --akzent-text: #2b1a02;
+  --gut: #97c459;
+  --warn: #f09595;
+  --taste: 54px;
+  --schrift: 17px;
+}
+[data-design='buero'] {
+  --bg: #f4f6f9;
+  --flaeche: #ffffff;
+  --flaeche2: #e6f1fb;
+  --text: #1d2733;
+  --text2: #5f6b78;
+  --rand: #cfd6de;
+  --akzent: #185fa5;
+  --akzent-text: #ffffff;
+  --gut: #3b6d11;
+  --warn: #a32d2d;
+  --radius: 6px;
+}
+[data-design='stall'] {
+  --bg: #faeeda;
+  --flaeche: #fffdf8;
+  --flaeche2: #f3e2c2;
+  --text: #412402;
+  --text2: #854f0b;
+  --rand: #e3c58e;
+  --akzent: #3b6d11;
+  --akzent-text: #f4fae9;
+  --gut: #3b6d11;
+  --warn: #a32d2d;
+  --radius: 16px;
+  --taste: 48px;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: var(--schrift) / 1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+h1 {
+  font-size: 1.4em;
+  margin: 0 0 12px;
+}
+h2 {
+  font-size: 1.1em;
+  margin: 0 0 10px;
+}
+p {
+  margin: 0 0 10px;
+}
+a {
+  color: inherit;
+}
+.mitte {
+  text-align: center;
+  padding: 40px 16px;
+}
+.klein {
+  font-size: 0.85em;
+  color: var(--text2);
+}
+.rechts {
+  text-align: right;
+}
+
+.kopf {
+  background: var(--flaeche);
+  border-bottom: 1px solid var(--rand);
+  padding: 8px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.kopf .name {
+  font-weight: 600;
+  margin-right: auto;
+  padding: 0 4px;
+}
+.kopf nav {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.kopf nav a {
+  text-decoration: none;
+  padding: 0 12px;
+  min-height: var(--taste);
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius);
+  color: var(--text2);
+}
+.kopf nav a.aktiv {
+  background: var(--flaeche2);
+  color: var(--text);
+  font-weight: 600;
+}
+.hinweis {
+  background: var(--flaeche2);
+  padding: 8px 14px;
+  font-size: 0.85em;
+  color: var(--text2);
+}
+.hinweis.warnung {
+  color: var(--text);
+  border-left: 4px solid var(--akzent);
+}
+main {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 18px 14px 60px;
+}
+.karte {
+  background: var(--flaeche);
+  border: 1px solid var(--rand);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.kacheln {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.kachel {
+  background: var(--flaeche);
+  border: 1px solid var(--rand);
+  border-radius: var(--radius);
+  padding: 18px 14px;
+  text-decoration: none;
+  display: block;
+}
+.kachel b {
+  display: block;
+  font-size: 1.15em;
+}
+.kachel.haupt {
+  background: var(--akzent);
+  color: var(--akzent-text);
+  border-color: var(--akzent);
+}
+.kachel.haupt .klein {
+  color: var(--akzent-text);
+}
+.zahl {
+  font-size: 1.5em;
+  font-weight: 600;
+}
+
+button,
+.knopf {
+  font: inherit;
+  min-height: var(--taste);
+  padding: 0 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--rand);
+  background: var(--flaeche2);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+button.haupt,
+.knopf.haupt {
+  background: var(--akzent);
+  border-color: var(--akzent);
+  color: var(--akzent-text);
+  font-weight: 600;
+}
+button.link {
+  background: none;
+  border: none;
+  text-decoration: underline;
+  padding: 0 4px;
+  color: var(--text2);
+}
+button.klein-knopf {
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 0.9em;
+}
+.leiste {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 10px 0;
+}
+.leiste .platz {
+  margin-left: auto;
+}
+
+label {
+  display: block;
+  font-size: 0.85em;
+  color: var(--text2);
+  margin-bottom: 10px;
+}
+input,
+select,
+textarea {
+  display: block;
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  min-height: var(--taste);
+  padding: 8px 10px;
+  margin-top: 3px;
+  border-radius: var(--radius);
+  border: 1px solid var(--rand);
+  background: var(--bg);
+  color: var(--text);
+}
+input[type='checkbox'] {
+  display: inline-block;
+  width: 22px;
+  min-height: 22px;
+  height: 22px;
+  margin: 0 8px 0 0;
+  vertical-align: middle;
+}
+label.haken {
+  font-size: 1em;
+  color: var(--text);
+}
+.raster {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0 12px;
+}
+.position {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) 80px 110px 110px auto;
+  gap: 8px;
+  align-items: end;
+}
+@media (max-width: 640px) {
+  .position {
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--rand);
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+  }
+  .position label:first-child {
+    grid-column: 1 / -1;
+  }
+}
+.vorschlaege button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  justify-content: flex-start;
+  margin-top: 4px;
+}
+
+.tabelle-rahmen {
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th,
+td {
+  text-align: left;
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--rand);
+  vertical-align: top;
+}
+th {
+  font-size: 0.8em;
+  color: var(--text2);
+  font-weight: 600;
+}
+td.betrag,
+th.betrag {
+  text-align: right;
+  white-space: nowrap;
+}
+tr.storniert td {
+  color: var(--text2);
+  text-decoration: line-through;
+}
+tr.storniert td.frei {
+  text-decoration: none;
+}
+tr.klickbar {
+  cursor: pointer;
+}
+.marke {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  border: 1px solid var(--rand);
+  white-space: nowrap;
+}
+.marke.offen {
+  border-color: var(--akzent);
+  color: var(--akzent);
+}
+.marke.bezahlt {
+  border-color: var(--gut);
+  color: var(--gut);
+}
+.fehler {
+  color: var(--warn);
+  font-weight: 600;
+}
+.code {
+  font: 600 1.5em ui-monospace, Menlo, Consolas, monospace;
+  letter-spacing: 1px;
+  padding: 16px;
+  text-align: center;
+  background: var(--flaeche2);
+  border-radius: var(--radius);
+  margin: 12px 0;
+  word-break: break-all;
+}
+.schmal {
+  max-width: 460px;
+  margin: 40px auto;
+}
+.summen {
+  margin-left: auto;
+  width: max-content;
+  text-align: right;
+}
+.summen td {
+  border: none;
+  padding: 3px 0 3px 24px;
+}
+
+dialog {
+  border: 1px solid var(--rand);
+  border-radius: var(--radius);
+  background: var(--flaeche);
+  color: var(--text);
+  padding: 20px;
+  width: min(460px, 92vw);
+}
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+@media print {
+  .kopf,
+  .hinweis,
+  .nicht-drucken {
+    display: none;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+}
