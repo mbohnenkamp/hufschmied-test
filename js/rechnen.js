@@ -85,3 +85,37 @@ export function kassenMonat(eintraege, monat) {
 export function kassenBestand(eintraege) {
   return eintraege.reduce((s, e) => s + kassenVorzeichen(e), 0);
 }
+
+// Rechnungsübersicht. Eine Stornorechnung zählt negativ, die stornierte Rechnung bleibt positiv stehen:
+// zusammen ergeben beide 0.
+export function statusArt(r) {
+  if (r.typ === 'storno') return 'storno';
+  if (r.storniertDurch) return 'storniert';
+  if (r.bezahlt || r.eingang) return 'bezahlt';
+  return 'offen';
+}
+
+export function betraege(r) {
+  const s = rechnungsSummen(r.positionen);
+  const vz = r.typ === 'storno' ? -1 : 1;
+  return { netto: vz * s.netto, ust: vz * s.ust, brutto: vz * s.brutto };
+}
+
+export function summeBetraege(rechnungen) {
+  return rechnungen.reduce(
+    (summe, r) => {
+      const b = betraege(r);
+      return { netto: summe.netto + b.netto, ust: summe.ust + b.ust, brutto: summe.brutto + b.brutto, offen: summe.offen + (statusArt(r) === 'offen' ? b.brutto : 0) };
+    },
+    { netto: 0, ust: 0, brutto: 0, offen: 0 },
+  );
+}
+
+// Je Monat des Rechnungsdatums, neuester Monat zuerst.
+export function monatsSummen(rechnungen) {
+  const monate = [...new Set(rechnungen.map((r) => r.datum.slice(0, 7)))].sort().reverse();
+  return monate.map((monat) => {
+    const liste = rechnungen.filter((r) => r.datum.slice(0, 7) === monat);
+    return { monat, anzahl: liste.length, ...summeBetraege(liste) };
+  });
+}

@@ -1,5 +1,5 @@
 import * as speicher from './speicher.js';
-import { euroZuCent, centZuText, rechnungsSummen, naechsteNummer, heute, datumDeutsch, tagePlus, kassenMonat, kassenBestand, zeilenNetto } from './rechnen.js';
+import { euroZuCent, centZuText, rechnungsSummen, naechsteNummer, heute, datumDeutsch, tagePlus, kassenMonat, kassenBestand, zeilenNetto, statusArt, betraege, summeBetraege, monatsSummen } from './rechnen.js';
 import { ZAHLARTEN, EINHEITEN, kundenName } from './zugferd.js';
 import { rechnungPdf, kassenbuchPdf, rechnungsDateiname, monatsName } from './pdf.js';
 import { startDaten, beispielDaten } from './vorlagen.js';
@@ -15,6 +15,7 @@ let kasseMonat = heute().slice(0, 7);
 let bearbeiteterKunde = null;
 let letzteAktivitaet = Date.now();
 let dateien = {};
+let rechnungsFilter = { suche: '', monat: '', status: '', zahlart: '' };
 
 const h = (t) =>
   String(t ?? '')
@@ -208,9 +209,55 @@ function seiteStart() {
     <div class="karte"><h2>Letzte Rechnungen</h2>${rechnungsTabelle([...daten.rechnungen].reverse().slice(0, 5))}</div>`;
 }
 
+const STATUS_NAMEN = { offen: 'Offen', bezahlt: 'Bezahlt', storniert: 'Storniert', storno: 'Stornorechnung' };
+// Bei nachträglich bezahlten Rechnungen zählt die Zahlart des Zahlungseingangs.
+const zahlartVon = (r) => (r.eingang || r).zahlart;
+
+function gefilterteRechnungen() {
+  const f = rechnungsFilter;
+  const suche = f.suche.trim().toLowerCase();
+  return daten.rechnungen
+    .filter((r) => !suche || `${r.nr} ${r.kunde.firma} ${r.kunde.name} ${r.kunde.ort}`.toLowerCase().includes(suche))
+    .filter((r) => !f.monat || r.datum.slice(0, 7) === f.monat)
+    .filter((r) => !f.status || statusArt(r) === f.status)
+    .filter((r) => !f.zahlart || zahlartVon(r) === f.zahlart)
+    .reverse();
+}
+
+function rechnungsErgebnis() {
+  const liste = gefilterteRechnungen();
+  const s = summeBetraege(liste);
+  return `<p class="klein">${liste.length} von ${daten.rechnungen.length} Rechnungen</p>
+    ${rechnungsTabelle(liste)}
+    ${liste.length ? `<table class="summen"><tr><td>Summe netto</td><td>${euro(s.netto)}</td></tr><tr><td>Umsatzsteuer 19 %</td><td>${euro(s.ust)}</td></tr><tr><td><b>Summe brutto</b></td><td><b>${euro(s.brutto)}</b></td></tr><tr><td>davon offen</td><td>${euro(s.offen)}</td></tr></table>` : ''}`;
+}
+
 function seiteRechnungen() {
+  const f = rechnungsFilter;
+  const monate = monatsSummen(daten.rechnungen);
+  const auswahl = (id, name, optionen, wert) =>
+    `<label>${name}<select id="${id}" data-filter="${id.slice(8)}"><option value="">Alle</option>${optionen.map(([v, t]) => `<option value="${v}" ${wert === v ? 'selected' : ''}>${h(t)}</option>`).join('')}</select></label>`;
   return `<div class="leiste"><h1 style="margin:0">Rechnungen</h1><a class="knopf haupt platz" href="#rechnung-neu">Neue Rechnung</a></div>
-    <div class="karte">${rechnungsTabelle([...daten.rechnungen].reverse())}</div>`;
+    <div class="karte">
+      <div class="raster">
+        <label>Suchen<input id="rfilter-suche" data-filter="suche" value="${h(f.suche)}" placeholder="Nummer, Kunde oder Ort" autocomplete="off" /></label>
+        ${auswahl('rfilter-monat', 'Monat', monate.map((m) => [m.monat, monatsName(m.monat)]), f.monat)}
+        ${auswahl('rfilter-status', 'Status', Object.entries(STATUS_NAMEN), f.status)}
+        ${auswahl('rfilter-zahlart', 'Zahlart', Object.entries(ZAHLARTEN).map(([id, z]) => [id, z.text]), f.zahlart)}
+      </div>
+      <div class="leiste"><button data-aktion="filterLeeren">Filter zurücksetzen</button><button class="haupt platz" data-aktion="rechnungenExport">Excel erzeugen</button></div>
+      <div class="leiste" id="rechnungenexport"></div>
+      <div id="rechnungsergebnis">${rechnungsErgebnis()}</div>
+    </div>
+    <div class="karte"><h2>Monatssummen</h2>
+      <p class="klein">Alle Rechnungen nach Rechnungsdatum, unabhängig vom Filter. Stornorechnungen zählen negativ und heben die stornierte Rechnung auf.</p>
+      ${
+        monate.length
+          ? `<div class="tabelle-rahmen"><table><tr><th>Monat</th><th class="betrag">Anzahl</th><th class="betrag">Netto</th><th class="betrag">Umsatzsteuer</th><th class="betrag">Brutto</th><th class="betrag">davon offen</th></tr>
+        ${monate.map((m) => `<tr><td>${h(monatsName(m.monat))}</td><td class="betrag">${m.anzahl}</td><td class="betrag">${euro(m.netto)}</td><td class="betrag">${euro(m.ust)}</td><td class="betrag">${euro(m.brutto)}</td><td class="betrag">${euro(m.offen)}</td></tr>`).join('')}</table></div>`
+          : '<p class="klein">Noch keine Rechnungen.</p>'
+      }
+    </div>`;
 }
 
 function leererEntwurf() {
@@ -716,6 +763,45 @@ const aktionen = {
     await sichern();
     zeige();
   },
+  filterLeeren() {
+    rechnungsFilter = { suche: '', monat: '', status: '', zahlart: '' };
+    zeige();
+  },
+  rechnungenExport() {
+    const liste = gefilterteRechnungen().reverse();
+    const s = summeBetraege(liste);
+    const f = rechnungsFilter;
+    const filterText = [f.suche && `Suche „${f.suche}“`, f.monat && monatsName(f.monat), f.status && STATUS_NAMEN[f.status], f.zahlart && ZAHLARTEN[f.zahlart].text].filter(Boolean).join(', ') || 'keiner';
+    const bezahltAm = (r) => (statusArt(r) !== 'bezahlt' ? '' : datumDeutsch(r.eingang ? r.eingang.datum : r.datum));
+    const zeilen = [
+      [`Rechnungen ${daten.betrieb.name}`],
+      [`Filter: ${filterText}. Erzeugt am ${datumDeutsch(heute())}.`],
+      [],
+      ['Nr.', 'Art', 'Rechnungsdatum', 'Leistungsdatum', 'Kunde', 'Ort', 'Netto', 'Umsatzsteuer', 'Brutto', 'Zahlart', 'Status', 'Bezahlt am', 'Bezug'],
+      ...liste.map((r) => {
+        const b = betraege(r);
+        return [r.nr, r.typ === 'storno' ? 'Stornorechnung' : 'Rechnung', datumDeutsch(r.datum), datumDeutsch(r.leistungsdatum), kundenName(r.kunde), r.kunde.ort, b.netto / 100, b.ust / 100, b.brutto / 100, r.typ === 'storno' ? '' : ZAHLARTEN[zahlartVon(r)].text, STATUS_NAMEN[statusArt(r)], bezahltAm(r), r.bezugNr || r.storniertDurch || ''];
+      }),
+      [],
+      ['', '', '', '', 'Summe', '', s.netto / 100, s.ust / 100, s.brutto / 100],
+      ['', '', '', '', 'davon offen', '', '', '', s.offen / 100],
+    ];
+    const blatt = window.XLSX.utils.aoa_to_sheet(zeilen);
+    blatt['!cols'] = [14, 15, 15, 15, 30, 18, 12, 13, 12, 13, 15, 12, 14].map((wch) => ({ wch }));
+    const monate = [['Monat', 'Anzahl', 'Netto', 'Umsatzsteuer', 'Brutto', 'davon offen'], ...monatsSummen(daten.rechnungen).map((m) => [monatsName(m.monat), m.anzahl, m.netto / 100, m.ust / 100, m.brutto / 100, m.offen / 100])];
+    const blatt2 = window.XLSX.utils.aoa_to_sheet(monate);
+    blatt2['!cols'] = [18, 8, 12, 13, 12, 12].map((wch) => ({ wch }));
+    for (const [b, spalten] of [[blatt, /^[GHI]\d/], [blatt2, /^[C-F]\d/]]) {
+      Object.keys(b).forEach((zelle) => {
+        if (typeof b[zelle].v === 'number' && spalten.test(zelle)) b[zelle].z = '#,##0.00';
+      });
+    }
+    const mappe = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(mappe, blatt, 'Rechnungen');
+    window.XLSX.utils.book_append_sheet(mappe, blatt2, 'Monatssummen');
+    dateiBereit('rechnungen-excel', window.XLSX.write(mappe, { type: 'array', bookType: 'xlsx' }), `Rechnungen_${f.monat || heute()}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    document.getElementById('rechnungenexport').innerHTML = dateiKnoepfe('rechnungen-excel', { oeffnen: false });
+  },
   async kasseExport() {
     const ziel = document.getElementById('kasseexport');
     ziel.innerHTML = '<span class="klein">Dateien werden erzeugt …</span>';
@@ -819,6 +905,10 @@ app.addEventListener('input', (ereignis) => {
       .slice(0, 8)
       .map((k) => `<button type="button" data-aktion="kundeWaehlen" data-id="${k.id}">${h(kundenName(k))}${k.firma && k.name ? ` · ${h(k.name)}` : ''} · ${h(k.plz)} ${h(k.ort)}</button>`)
       .join('');
+  } else if (ziel.id === 'rfilter-suche') {
+    rechnungsFilter.suche = ziel.value;
+    document.getElementById('rechnungsergebnis').innerHTML = rechnungsErgebnis();
+    document.getElementById('rechnungenexport').innerHTML = '';
   } else if (ziel.id === 'kundenfilter') {
     kundenSuche = ziel.value;
     const liste = (kundenSuche ? kundenTreffer(kundenSuche) : daten.kunden).slice().sort((a, b) => kundenName(a).localeCompare(kundenName(b), 'de'));
@@ -839,6 +929,10 @@ app.addEventListener('change', (ereignis) => {
     if (leer >= 0) entwurf.positionen[leer] = neu;
     else entwurf.positionen.push(neu);
     zeige();
+  } else if (ziel.dataset.filter && ziel.tagName === 'SELECT') {
+    rechnungsFilter[ziel.dataset.filter] = ziel.value;
+    document.getElementById('rechnungsergebnis').innerHTML = rechnungsErgebnis();
+    document.getElementById('rechnungenexport').innerHTML = '';
   } else if (ziel.id === 'kassemonat' && ziel.value) {
     kasseMonat = ziel.value;
     zeige();

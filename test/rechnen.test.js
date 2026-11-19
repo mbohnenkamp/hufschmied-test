@@ -68,3 +68,24 @@ test('Bar bezahlte Rechnung hat keinen offenen Betrag', () => {
   assert.match(xml, /<ram:TotalPrepaidAmount>182\.19<\/ram:TotalPrepaidAmount><ram:DuePayableAmount>0\.00<\/ram:DuePayableAmount>/);
   assert.match(xml, /<ram:TypeCode>10<\/ram:TypeCode>/);
 });
+
+test('Monatssummen: Storno hebt die Rechnung auf, offen zählt nur Unbezahltes', async () => {
+  const { monatsSummen, statusArt } = await import('../js/rechnen.js');
+  const pos = (cent) => [{ menge: 1, einzelpreisCent: cent }];
+  const rechnungen = [
+    // Oktober: 100,00 netto bezahlt -> 119,00 brutto
+    { nr: 'RE-1', typ: 'rechnung', datum: '2026-10-05', bezahlt: true, positionen: pos(10000) },
+    // November: 200,00 netto offen -> 238,00; 50,00 netto storniert -> 59,50; Storno dazu -> -59,50
+    { nr: 'RE-2', typ: 'rechnung', datum: '2026-11-02', bezahlt: false, positionen: pos(20000) },
+    { nr: 'RE-3', typ: 'rechnung', datum: '2026-11-03', bezahlt: false, storniertDurch: 'ST-1', positionen: pos(5000) },
+    { nr: 'ST-1', typ: 'storno', datum: '2026-11-04', bezahlt: false, bezugNr: 'RE-3', positionen: pos(5000) },
+    // November: 10,00 netto, später per Überweisung bezahlt -> 11,90
+    { nr: 'RE-4', typ: 'rechnung', datum: '2026-11-10', bezahlt: false, eingang: { datum: '2026-11-12', zahlart: 'ueberweisung' }, positionen: pos(1000) },
+  ];
+  assert.deepEqual(rechnungen.map(statusArt), ['bezahlt', 'offen', 'storniert', 'storno', 'bezahlt']);
+  assert.deepEqual(monatsSummen(rechnungen), [
+    // 200 + 50 - 50 + 10 = 210,00 netto; USt 38,00 + 9,50 - 9,50 + 1,90 = 39,90; brutto 249,90; offen 238,00
+    { monat: '2026-11', anzahl: 4, netto: 21000, ust: 3990, brutto: 24990, offen: 23800 },
+    { monat: '2026-10', anzahl: 1, netto: 10000, ust: 1900, brutto: 11900, offen: 0 },
+  ]);
+});
