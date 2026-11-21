@@ -16,6 +16,9 @@ const varianten = {
   bar: { ...beispielRechnung, nr: 'RE-2026-0002', zahlart: 'bar', bezahlt: true },
   paypal: { ...beispielRechnung, nr: 'RE-2026-0003', zahlart: 'paypal', bezahlt: true },
   storno: { ...beispielRechnung, nr: 'ST-2026-0001', typ: 'storno', bezugNr: 'RE-2026-0001' },
+  gemischt: { ...beispielRechnung, nr: 'RE-2026-0004', positionen: [...beispielRechnung.positionen, { bezeichnung: 'Mineralfutter 10 kg', menge: 2, einheit: 'C62', einzelpreisCent: 2490, ustSatz: 7 }] },
+  nurFutter: { ...beispielRechnung, nr: 'RE-2026-0005', zahlart: 'bar', bezahlt: true, positionen: [{ bezeichnung: 'Mineralfutter 10 kg', menge: 3, einheit: 'C62', einzelpreisCent: 2490, ustSatz: 7 }] },
+  stornoGemischt: { ...beispielRechnung, nr: 'ST-2026-0002', typ: 'storno', bezugNr: 'RE-2026-0004', positionen: [...beispielRechnung.positionen, { bezeichnung: 'Mineralfutter 10 kg', menge: 2, einheit: 'C62', einzelpreisCent: 2490, ustSatz: 7 }] },
 };
 
 for (const [name, rechnung] of Object.entries(varianten)) {

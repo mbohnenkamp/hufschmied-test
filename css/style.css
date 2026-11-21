@@ -254,7 +254,7 @@ label.haken {
 }
 .position {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) 80px 110px 110px auto;
+  grid-template-columns: minmax(0, 3fr) 70px 100px 110px 90px auto;
   gap: 8px;
   align-items: end;
 }

@@ -1,5 +1,5 @@
 // Erzeugt die XML-Datei (ZUGFeRD / Factur-X, Profil EN 16931), die in die PDF-Rechnung eingebettet wird.
-import { centZuDezimal, rechnungsSummen, zeilenNetto, UST_SATZ } from './rechnen.js';
+import { centZuDezimal, rechnungsSummen, zeilenNetto, ustSatzVon } from './rechnen.js';
 
 export const ZAHLARTEN = {
   bar: { text: 'Bar', code: '10' },
@@ -48,7 +48,7 @@ export function zugferdXml(rechnung, betrieb) {
 <ram:SpecifiedLineTradeAgreement><ram:NetPriceProductTradePrice><ram:ChargeAmount>${centZuDezimal(p.einzelpreisCent)}</ram:ChargeAmount></ram:NetPriceProductTradePrice></ram:SpecifiedLineTradeAgreement>
 <ram:SpecifiedLineTradeDelivery><ram:BilledQuantity unitCode="${p.einheit}">${Number(p.menge.toFixed(4))}</ram:BilledQuantity></ram:SpecifiedLineTradeDelivery>
 <ram:SpecifiedLineTradeSettlement>
-<ram:ApplicableTradeTax><ram:TypeCode>VAT</ram:TypeCode><ram:CategoryCode>S</ram:CategoryCode><ram:RateApplicablePercent>${UST_SATZ}</ram:RateApplicablePercent></ram:ApplicableTradeTax>
+<ram:ApplicableTradeTax><ram:TypeCode>VAT</ram:TypeCode><ram:CategoryCode>S</ram:CategoryCode><ram:RateApplicablePercent>${ustSatzVon(p)}</ram:RateApplicablePercent></ram:ApplicableTradeTax>
 <ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>${centZuDezimal(zeilenNetto(p.menge, p.einzelpreisCent))}</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation>
 </ram:SpecifiedLineTradeSettlement>
 </ram:IncludedSupplyChainTradeLineItem>`,
@@ -87,7 +87,7 @@ ${zeilen}
 <ram:ApplicableHeaderTradeSettlement>
 <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
 <ram:SpecifiedTradeSettlementPaymentMeans><ram:TypeCode>${ZAHLARTEN[rechnung.zahlart].code}</ram:TypeCode><ram:Information>${x(ZAHLARTEN[rechnung.zahlart].text)}</ram:Information>${konto}</ram:SpecifiedTradeSettlementPaymentMeans>
-<ram:ApplicableTradeTax><ram:CalculatedAmount>${centZuDezimal(summen.ust)}</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode><ram:BasisAmount>${centZuDezimal(summen.netto)}</ram:BasisAmount><ram:CategoryCode>S</ram:CategoryCode><ram:RateApplicablePercent>${UST_SATZ}</ram:RateApplicablePercent></ram:ApplicableTradeTax>
+${summen.gruppen.map((g) => `<ram:ApplicableTradeTax><ram:CalculatedAmount>${centZuDezimal(g.ust)}</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode><ram:BasisAmount>${centZuDezimal(g.netto)}</ram:BasisAmount><ram:CategoryCode>S</ram:CategoryCode><ram:RateApplicablePercent>${g.satz}</ram:RateApplicablePercent></ram:ApplicableTradeTax>`).join('\n')}
 <ram:SpecifiedTradePaymentTerms><ram:Description>${x(zahlungsText(rechnung))}</ram:Description>${faellig}</ram:SpecifiedTradePaymentTerms>
 <ram:SpecifiedTradeSettlementHeaderMonetarySummation><ram:LineTotalAmount>${centZuDezimal(summen.netto)}</ram:LineTotalAmount><ram:TaxBasisTotalAmount>${centZuDezimal(summen.netto)}</ram:TaxBasisTotalAmount><ram:TaxTotalAmount currencyID="EUR">${centZuDezimal(summen.ust)}</ram:TaxTotalAmount><ram:GrandTotalAmount>${centZuDezimal(summen.brutto)}</ram:GrandTotalAmount><ram:TotalPrepaidAmount>${centZuDezimal(bezahltCent)}</ram:TotalPrepaidAmount><ram:DuePayableAmount>${centZuDezimal(summen.brutto - bezahltCent)}</ram:DuePayableAmount></ram:SpecifiedTradeSettlementHeaderMonetarySummation>
 ${bezug}

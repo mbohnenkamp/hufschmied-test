@@ -21,7 +21,24 @@ test('Cent werden deutsch geschrieben', () => {
 
 test('Rechnungssummen: 95,00 + 4 x 12,50 + 18 x 0,45 = 153,10 netto, 29,09 USt, 182,19 brutto', () => {
   // 153,10 x 19 % = 29,089 -> 29,09
-  assert.deepEqual(rechnungsSummen(beispielRechnung.positionen), { netto: 15310, ust: 2909, brutto: 18219 });
+  assert.deepEqual(rechnungsSummen(beispielRechnung.positionen), { netto: 15310, ust: 2909, brutto: 18219, gruppen: [{ satz: 19, netto: 15310, ust: 2909 }] });
+});
+
+test('Gemischte Steuersätze: 95,00 zu 19 % und 2 x 24,90 Futter zu 7 %', () => {
+  // 19 %: 95,00 -> 18,05. 7 %: 49,80 -> 3,486 -> 3,49. Netto 144,80, USt 21,54, brutto 166,34.
+  const positionen = [
+    { menge: 1, einzelpreisCent: 9500, ustSatz: 19 },
+    { menge: 2, einzelpreisCent: 2490, ustSatz: 7 },
+  ];
+  assert.deepEqual(rechnungsSummen(positionen), {
+    netto: 14480,
+    ust: 2154,
+    brutto: 16634,
+    gruppen: [
+      { satz: 19, netto: 9500, ust: 1805 },
+      { satz: 7, netto: 4980, ust: 349 },
+    ],
+  });
 });
 
 test('Rechnungsnummern laufen je Jahr fort', () => {

@@ -1,5 +1,5 @@
 import * as speicher from './speicher.js';
-import { euroZuCent, centZuText, rechnungsSummen, naechsteNummer, heute, datumDeutsch, tagePlus, kassenMonat, kassenBestand, zeilenNetto, statusArt, betraege, summeBetraege, monatsSummen } from './rechnen.js';
+import { euroZuCent, centZuText, rechnungsSummen, naechsteNummer, heute, datumDeutsch, tagePlus, kassenMonat, kassenBestand, zeilenNetto, ustSatzVon, UST_SAETZE, statusArt, betraege, summeBetraege, monatsSummen } from './rechnen.js';
 import { ZAHLARTEN, EINHEITEN, kundenName } from './zugferd.js';
 import { rechnungPdf, kassenbuchPdf, rechnungsDateiname, monatsName } from './pdf.js';
 import { startDaten, beispielDaten } from './vorlagen.js';
@@ -35,11 +35,21 @@ function frage(text, { eingabe = null, ja = 'OK', nein = 'Abbrechen' } = {}) {
     dialog.innerHTML = `<form method="dialog"><p>${h(text)}</p>
       ${eingabe ? `<label>${h(eingabe)}<input name="wert" required /></label>` : ''}
       <div class="leiste"><button class="haupt" value="ja">${h(ja)}</button>${nein ? `<button value="nein" formnovalidate>${h(nein)}</button>` : ''}</div></form>`;
-    dialog.onclose = () => {
-      const ok = dialog.returnValue === 'ja';
-      fertig(eingabe ? (ok ? dialog.querySelector('input').value.trim() : null) : ok);
+    const form = dialog.querySelector('form');
+    let erledigt = false;
+    // Nicht auf das close-Ereignis warten: in einem Tab im Hintergrund kommt es verzögert.
+    const ende = (ok) => {
+      if (erledigt) return;
+      erledigt = true;
+      const wert = eingabe ? (ok ? form.querySelector('input').value.trim() : null) : ok;
+      if (dialog.open) dialog.close();
+      fertig(wert);
     };
-    dialog.returnValue = '';
+    form.onsubmit = (ereignis) => {
+      ereignis.preventDefault();
+      ende(ereignis.submitter?.value === 'ja');
+    };
+    dialog.onclose = () => ende(false);
     dialog.showModal();
   });
 }
@@ -229,7 +239,7 @@ function rechnungsErgebnis() {
   const s = summeBetraege(liste);
   return `<p class="klein">${liste.length} von ${daten.rechnungen.length} Rechnungen</p>
     ${rechnungsTabelle(liste)}
-    ${liste.length ? `<table class="summen"><tr><td>Summe netto</td><td>${euro(s.netto)}</td></tr><tr><td>Umsatzsteuer 19 %</td><td>${euro(s.ust)}</td></tr><tr><td><b>Summe brutto</b></td><td><b>${euro(s.brutto)}</b></td></tr><tr><td>davon offen</td><td>${euro(s.offen)}</td></tr></table>` : ''}`;
+    ${liste.length ? `<table class="summen"><tr><td>Summe netto</td><td>${euro(s.netto)}</td></tr><tr><td>Umsatzsteuer</td><td>${euro(s.ust)}</td></tr><tr><td><b>Summe brutto</b></td><td><b>${euro(s.brutto)}</b></td></tr><tr><td>davon offen</td><td>${euro(s.offen)}</td></tr></table>` : ''}`;
 }
 
 function seiteRechnungen() {
@@ -266,7 +276,7 @@ function leererEntwurf() {
     kunde: { firma: '', name: '', strasse: '', plz: '', ort: '', email: '' },
     datum: heute(),
     leistungsdatum: heute(),
-    positionen: [{ bezeichnung: '', menge: '1', einheit: 'C62', preis: '' }],
+    positionen: [{ bezeichnung: '', menge: '1', einheit: 'C62', preis: '', ustSatz: 19 }],
     zahlart: 'bar',
     bezahlt: true,
     hinweis: '',
@@ -275,14 +285,16 @@ function leererEntwurf() {
 
 function entwurfSummen() {
   const positionen = entwurf.positionen
-    .map((p) => ({ menge: Number(String(p.menge).replace(',', '.')), einzelpreisCent: euroZuCent(p.preis) }))
+    .map((p) => ({ menge: Number(String(p.menge).replace(',', '.')), einzelpreisCent: euroZuCent(p.preis), ustSatz: p.ustSatz }))
     .filter((p) => Number.isFinite(p.menge) && p.einzelpreisCent !== null);
   return rechnungsSummen(positionen);
 }
 
+const ustZeilen = (s, vz = 1) => s.gruppen.map((g) => `<tr><td>Umsatzsteuer ${g.satz} % auf ${euro(vz * g.netto)}</td><td>${euro(vz * g.ust)}</td></tr>`).join('');
+
 function summenHtml() {
   const s = entwurfSummen();
-  return `<table class="summen"><tr><td>Summe netto</td><td>${euro(s.netto)}</td></tr><tr><td>Umsatzsteuer 19 %</td><td>${euro(s.ust)}</td></tr><tr><td><b>Rechnungsbetrag</b></td><td><b>${euro(s.brutto)}</b></td></tr></table>`;
+  return `<table class="summen"><tr><td>Summe netto</td><td>${euro(s.netto)}</td></tr>${ustZeilen(s)}<tr><td><b>Rechnungsbetrag</b></td><td><b>${euro(s.brutto)}</b></td></tr></table>`;
 }
 
 function seiteRechnungNeu() {
@@ -305,8 +317,8 @@ function seiteRechnungNeu() {
       </div>
     </div>
     <div class="karte">
-      <h2>Leistungen</h2>
-      <label>Aus der Preisliste hinzufügen<select id="preisliste"><option value="">Bitte wählen …</option>${daten.leistungen.map((l) => `<option value="${l.id}">${h(l.bezeichnung)} · ${euro(l.einzelpreisCent)} netto</option>`).join('')}</select></label>
+      <h2>Leistungen und Artikel</h2>
+      <label>Aus der Preisliste hinzufügen<select id="preisliste"><option value="">Bitte wählen …</option>${daten.leistungen.map((l) => `<option value="${l.id}">${h(l.bezeichnung)} · ${euro(l.einzelpreisCent)} netto · ${ustSatzVon(l)} % USt</option>`).join('')}</select></label>
       ${entwurf.positionen
         .map(
           (p, i) => `<div class="position">
@@ -314,6 +326,7 @@ function seiteRechnungNeu() {
         <label>Menge<input name="menge-${i}" value="${h(p.menge)}" inputmode="decimal" /></label>
         <label>Einheit<select name="einheit-${i}">${Object.entries(EINHEITEN).map(([code, name]) => `<option value="${code}" ${p.einheit === code ? 'selected' : ''}>${name}</option>`).join('')}</select></label>
         <label>Einzelpreis netto €<input name="preis-${i}" value="${h(p.preis)}" inputmode="decimal" /></label>
+        <label>USt<select name="ust-${i}">${UST_SAETZE.map((satz) => `<option value="${satz}" ${p.ustSatz === satz ? 'selected' : ''}>${satz} %</option>`).join('')}</select></label>
         <label>&nbsp;<button type="button" data-aktion="positionWeg" data-index="${i}" aria-label="Position entfernen">Entfernen</button></label>
       </div>`,
         )
@@ -343,7 +356,7 @@ function entwurfLesen() {
   if (!form) return;
   const w = formWerte(form);
   entwurf.kunde = { firma: w.firma.trim(), name: w.name.trim(), strasse: w.strasse.trim(), plz: w.plz.trim(), ort: w.ort.trim(), email: w.email.trim() };
-  entwurf.positionen = entwurf.positionen.map((_, i) => ({ bezeichnung: w[`bezeichnung-${i}`].trim(), menge: w[`menge-${i}`], einheit: w[`einheit-${i}`], preis: w[`preis-${i}`] }));
+  entwurf.positionen = entwurf.positionen.map((_, i) => ({ bezeichnung: w[`bezeichnung-${i}`].trim(), menge: w[`menge-${i}`], einheit: w[`einheit-${i}`], preis: w[`preis-${i}`], ustSatz: Number(w[`ust-${i}`]) }));
   Object.assign(entwurf, { datum: w.datum, leistungsdatum: w.leistungsdatum, zahlart: w.zahlart, bezahlt: w.bezahlt === 'on', hinweis: w.hinweis.trim() });
 }
 
@@ -391,9 +404,9 @@ function seiteRechnung(nr) {
         <div><span class="klein">Rechnungsdatum</span><p>${datumDeutsch(r.datum)}</p><span class="klein">Leistungsdatum</span><p>${datumDeutsch(r.leistungsdatum)}</p></div>
         <div><span class="klein">Zahlart</span><p>${ZAHLARTEN[r.zahlart].text}</p>${r.bezugNr ? `<span class="klein">Zur Rechnung</span><p><a href="#rechnung/${h(r.bezugNr)}">${h(r.bezugNr)}</a></p>` : ''}</div>
       </div>
-      <div class="tabelle-rahmen"><table><tr><th>Leistung</th><th class="betrag">Menge</th><th class="betrag">Einzelpreis</th><th class="betrag">Netto</th></tr>
-      ${r.positionen.map((p) => `<tr><td>${h(p.bezeichnung)}</td><td class="betrag">${String(p.menge).replace('.', ',')} ${EINHEITEN[p.einheit]}</td><td class="betrag">${euro(p.einzelpreisCent)}</td><td class="betrag">${euro(vz * zeilenNetto(p.menge, p.einzelpreisCent))}</td></tr>`).join('')}</table></div>
-      <table class="summen"><tr><td>Summe netto</td><td>${euro(vz * s.netto)}</td></tr><tr><td>Umsatzsteuer 19 %</td><td>${euro(vz * s.ust)}</td></tr><tr><td><b>Rechnungsbetrag</b></td><td><b>${euro(vz * s.brutto)}</b></td></tr></table>
+      <div class="tabelle-rahmen"><table><tr><th>Leistung</th><th class="betrag">Menge</th><th class="betrag">Einzelpreis</th><th class="betrag">USt</th><th class="betrag">Netto</th></tr>
+      ${r.positionen.map((p) => `<tr><td>${h(p.bezeichnung)}</td><td class="betrag">${String(p.menge).replace('.', ',')} ${EINHEITEN[p.einheit]}</td><td class="betrag">${euro(p.einzelpreisCent)}</td><td class="betrag">${ustSatzVon(p)} %</td><td class="betrag">${euro(vz * zeilenNetto(p.menge, p.einzelpreisCent))}</td></tr>`).join('')}</table></div>
+      <table class="summen"><tr><td>Summe netto</td><td>${euro(vz * s.netto)}</td></tr>${ustZeilen(s, vz)}<tr><td><b>Rechnungsbetrag</b></td><td><b>${euro(vz * s.brutto)}</b></td></tr></table>
       <p class="klein">${kassenHinweis(r)}</p>
     </div>
     <div class="karte">
@@ -507,12 +520,13 @@ function seiteEinstellungen() {
       <label>Zahlungsziel in Tagen<input name="zahlungszielTage" type="number" min="0" max="90" value="${b.zahlungszielTage}" required /></label>
     </div><p class="fehler" id="fehler-betrieb"></p><button class="haupt">Speichern</button></form></div>
     <div class="karte"><h2>Preisliste</h2>
-      <div class="tabelle-rahmen"><table><tr><th>Leistung</th><th>Einheit</th><th class="betrag">Netto</th><th class="betrag">Brutto</th><th></th></tr>
-      ${daten.leistungen.map((l) => `<tr><td>${h(l.bezeichnung)}</td><td>${EINHEITEN[l.einheit]}</td><td class="betrag">${euro(l.einzelpreisCent)}</td><td class="betrag">${euro(rechnungsSummen([{ menge: 1, einzelpreisCent: l.einzelpreisCent }]).brutto)}</td><td class="betrag"><button class="klein-knopf" data-aktion="leistungWeg" data-id="${l.id}">Entfernen</button></td></tr>`).join('')}</table></div>
+      <div class="tabelle-rahmen"><table><tr><th>Leistung / Artikel</th><th>Einheit</th><th class="betrag">Netto</th><th class="betrag">USt</th><th class="betrag">Brutto</th><th></th></tr>
+      ${daten.leistungen.map((l) => `<tr><td>${h(l.bezeichnung)}</td><td>${EINHEITEN[l.einheit]}</td><td class="betrag">${euro(l.einzelpreisCent)}</td><td class="betrag">${ustSatzVon(l)} %</td><td class="betrag">${euro(rechnungsSummen([{ menge: 1, einzelpreisCent: l.einzelpreisCent, ustSatz: ustSatzVon(l) }]).brutto)}</td><td class="betrag"><button class="klein-knopf" data-aktion="leistungWeg" data-id="${l.id}">Entfernen</button></td></tr>`).join('')}</table></div>
       <form data-form="leistung"><div class="raster">
         <label>Leistung<input name="bezeichnung" required /></label>
         <label>Einheit<select name="einheit">${Object.entries(EINHEITEN).map(([code, name]) => `<option value="${code}">${name}</option>`).join('')}</select></label>
         <label>Einzelpreis netto €<input name="preis" inputmode="decimal" required /></label>
+        <label>Umsatzsteuer<select name="ustSatz">${UST_SAETZE.map((satz) => `<option value="${satz}">${satz} %</option>`).join('')}</select></label>
       </div><p class="fehler" id="fehler-leistung"></p><button>Zur Preisliste hinzufügen</button></form>
     </div>
     <div class="karte"><h2>Design</h2><div class="leiste">
@@ -600,7 +614,7 @@ const formulare = {
       if (!p.bezeichnung) return fehler(`Position ${i + 1}: Die Leistung fehlt.`);
       if (!Number.isFinite(menge) || menge <= 0) return fehler(`Position ${i + 1}: Die Menge ist keine gültige Zahl.`);
       if (einzelpreisCent === null || einzelpreisCent < 0) return fehler(`Position ${i + 1}: Der Preis ist kein gültiger Betrag.`);
-      positionen.push({ bezeichnung: p.bezeichnung, menge, einheit: p.einheit, einzelpreisCent });
+      positionen.push({ bezeichnung: p.bezeichnung, menge, einheit: p.einheit, einzelpreisCent, ustSatz: p.ustSatz });
     }
     const summen = rechnungsSummen(positionen);
     if (summen.brutto <= 0) return fehler('Der Rechnungsbetrag muss größer als 0 sein.');
@@ -667,7 +681,7 @@ const formulare = {
   async leistung(w) {
     const einzelpreisCent = euroZuCent(w.preis);
     if (einzelpreisCent === null || einzelpreisCent < 0) return fehler('Der Preis ist kein gültiger Betrag.', 'fehler-leistung');
-    daten.leistungen.push({ id: neueId(), bezeichnung: w.bezeichnung.trim(), einheit: w.einheit, einzelpreisCent });
+    daten.leistungen.push({ id: neueId(), bezeichnung: w.bezeichnung.trim(), einheit: w.einheit, einzelpreisCent, ustSatz: Number(w.ustSatz) });
     await sichern();
     zeige();
   },
@@ -697,13 +711,13 @@ const aktionen = {
   },
   positionDazu() {
     entwurfLesen();
-    entwurf.positionen.push({ bezeichnung: '', menge: '1', einheit: 'C62', preis: '' });
+    entwurf.positionen.push({ bezeichnung: '', menge: '1', einheit: 'C62', preis: '', ustSatz: 19 });
     zeige();
   },
   positionWeg(el) {
     entwurfLesen();
     entwurf.positionen.splice(Number(el.dataset.index), 1);
-    if (!entwurf.positionen.length) entwurf.positionen.push({ bezeichnung: '', menge: '1', einheit: 'C62', preis: '' });
+    if (!entwurf.positionen.length) entwurf.positionen.push({ bezeichnung: '', menge: '1', einheit: 'C62', preis: '', ustSatz: 19 });
     zeige();
   },
   kundeWaehlen(el) {
@@ -924,7 +938,7 @@ app.addEventListener('change', (ereignis) => {
   if (ziel.id === 'preisliste' && ziel.value) {
     entwurfLesen();
     const l = daten.leistungen.find((x) => x.id === ziel.value);
-    const neu = { bezeichnung: l.bezeichnung, menge: '1', einheit: l.einheit, preis: centZuText(l.einzelpreisCent) };
+    const neu = { bezeichnung: l.bezeichnung, menge: '1', einheit: l.einheit, preis: centZuText(l.einzelpreisCent), ustSatz: ustSatzVon(l) };
     const leer = entwurf.positionen.findIndex((p) => !p.bezeichnung && !p.preis);
     if (leer >= 0) entwurf.positionen[leer] = neu;
     else entwurf.positionen.push(neu);

@@ -1,6 +1,6 @@
 // PDF-Erzeugung. Läuft im Browser und in den Tests; die Bibliotheken werden deshalb übergeben:
 // lib = { PDFLib, fontkit, schrift, schriftFett, icc }
-import { centZuText, datumDeutsch, rechnungsSummen, zeilenNetto, kassenMonat, UST_SATZ } from './rechnen.js';
+import { centZuText, datumDeutsch, rechnungsSummen, zeilenNetto, kassenMonat, ustSatzVon } from './rechnen.js';
 import { zugferdXml, zahlungsText, kundenName, EINHEITEN } from './zugferd.js';
 
 const RAND = 56;
@@ -147,11 +147,12 @@ export async function rechnungPdf(lib, rechnung, betrieb) {
   });
 
   z.y -= 44;
-  const spalten = { pos: RAND, text: RAND + 28, menge: 345, einzel: 440, gesamt: rechts };
+  const spalten = { pos: RAND, text: RAND + 28, menge: 330, ust: 372, einzel: 455, gesamt: rechts };
   const tabellenKopf = () => {
     z.text('Pos.', spalten.pos, { fett: true, size: 9 });
     z.text('Leistung', spalten.text, { fett: true, size: 9 });
     z.text('Menge', spalten.menge, { fett: true, size: 9, rechts: true });
+    z.text('USt', spalten.ust, { fett: true, size: 9, rechts: true });
     z.text('Einzelpreis €', spalten.einzel, { fett: true, size: 9, rechts: true });
     z.text('Netto €', spalten.gesamt, { fett: true, size: 9, rechts: true });
     z.y -= 6;
@@ -160,10 +161,11 @@ export async function rechnungPdf(lib, rechnung, betrieb) {
   };
   tabellenKopf();
   rechnung.positionen.forEach((p, i) => {
-    const zeilen = z.umbruch(p.bezeichnung, 215);
+    const zeilen = z.umbruch(p.bezeichnung, 190);
     if (z.neueSeiteWennNoetig(zeilen.length * 13 + 10)) tabellenKopf();
     z.text(i + 1, spalten.pos);
     z.text(`${String(p.menge).replace('.', ',')} ${EINHEITEN[p.einheit]}`, spalten.menge, { rechts: true });
+    z.text(`${ustSatzVon(p)} %`, spalten.ust, { rechts: true });
     z.text(centZuText(p.einzelpreisCent), spalten.einzel, { rechts: true });
     z.text(centZuText(vz * zeilenNetto(p.menge, p.einzelpreisCent)), spalten.gesamt, { rechts: true });
     zeilen.forEach((t) => {
@@ -178,7 +180,7 @@ export async function rechnungPdf(lib, rechnung, betrieb) {
   z.y -= 8;
   [
     ['Summe netto', summen.netto, false],
-    [`Umsatzsteuer ${UST_SATZ} %`, summen.ust, false],
+    ...summen.gruppen.map((g) => [`Umsatzsteuer ${g.satz} % auf ${centZuText(vz * g.netto)} €`, g.ust, false]),
     ['Rechnungsbetrag', summen.brutto, true],
   ].forEach(([name, cent, stark]) => {
     z.text(name, spalten.einzel, { rechts: true, fett: stark, size: stark ? 11 : 10 });

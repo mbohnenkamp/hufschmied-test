@@ -25,6 +25,7 @@ export function startDaten() {
       { id: 'l2', bezeichnung: 'Beschlag, 2 Eisen', einheit: 'C62', einzelpreisCent: 7000 },
       { id: 'l3', bezeichnung: 'Ausschneiden (Barhuf)', einheit: 'C62', einzelpreisCent: 4000 },
       { id: 'l4', bezeichnung: 'Anfahrt', einheit: 'KMT', einzelpreisCent: 50 },
+      { id: 'l5', bezeichnung: 'Mineralfutter 10 kg', einheit: 'C62', einzelpreisCent: 2490, ustSatz: 7 },
     ],
     kunden: [],
     rechnungen: [],
@@ -47,11 +48,11 @@ export function beispielDaten(daten) {
   ].map((k, i) => ({ id: crypto.randomUUID(), email: `kunde${i + 1}@example.com`, telefon: '', notiz: 'Beispielkunde', ...k }));
 
   const [l1, l2, l3, l4] = daten.leistungen.length >= 4 ? daten.leistungen : startDaten().leistungen;
-  const pos = (l, menge = 1) => ({ bezeichnung: l.bezeichnung, menge, einheit: l.einheit, einzelpreisCent: l.einzelpreisCent });
+  const pos = (l, menge = 1) => ({ bezeichnung: l.bezeichnung, menge, einheit: l.einheit, einzelpreisCent: l.einzelpreisCent, ustSatz: l.ustSatz ?? 19 });
   const plan = [
     [kunden[0], tag(vormonat, 4), 'ueberweisung', false, [pos(l1, 2), pos(l4, 18)]],
     [kunden[1], tag(vormonat, 9), 'bar', true, [pos(l3), pos(l4, 12)]],
-    [kunden[2], tag(vormonat, 17), 'paypal', true, [pos(l1), pos(l2)]],
+    [kunden[2], tag(vormonat, 17), 'paypal', true, [pos(l1), pos(l2), { bezeichnung: 'Mineralfutter 10 kg (Beispiel)', menge: 2, einheit: 'C62', einzelpreisCent: 2490, ustSatz: 7 }]],
     [kunden[3], tag(vormonat, 24), 'bar', true, [pos(l2), pos(l4, 7)]],
     [kunden[0], tag(diesenMonat, 3), 'ueberweisung', false, [pos(l1, 3), pos(l4, 18)]],
     [kunden[1], tag(diesenMonat, 6), 'bar', true, [pos(l3, 2)]],

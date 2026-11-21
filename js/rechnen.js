@@ -1,6 +1,9 @@
 // Rechenregeln. Alle Geldbeträge werden intern in Cent (ganze Zahlen) geführt.
 
 export const UST_SATZ = 19;
+export const UST_SAETZE = [19, 7];
+// Ältere Positionen ohne Angabe gelten als 19 %.
+export const ustSatzVon = (p) => p.ustSatz ?? UST_SATZ;
 
 export function euroZuCent(eingabe) {
   const text = String(eingabe).trim().replace(/\s|€/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.');
@@ -25,11 +28,15 @@ export function zeilenNetto(menge, einzelpreisCent) {
   return Math.round(menge * einzelpreisCent);
 }
 
-// Die Umsatzsteuer wird auf die Summe gerechnet, nicht je Zeile (so verlangt es EN 16931).
-export function rechnungsSummen(positionen, ustSatz = UST_SATZ) {
-  const netto = positionen.reduce((summe, p) => summe + zeilenNetto(p.menge, p.einzelpreisCent), 0);
-  const ust = Math.round((netto * ustSatz) / 100);
-  return { netto, ust, brutto: netto + ust };
+// Die Umsatzsteuer wird je Steuersatz auf die Nettosumme gerechnet, nicht je Zeile (so verlangt es EN 16931).
+export function rechnungsSummen(positionen) {
+  const gruppen = UST_SAETZE.map((satz) => {
+    const netto = positionen.filter((p) => ustSatzVon(p) === satz).reduce((summe, p) => summe + zeilenNetto(p.menge, p.einzelpreisCent), 0);
+    return { satz, netto, ust: Math.round((netto * satz) / 100) };
+  }).filter((g) => g.netto !== 0);
+  const netto = gruppen.reduce((s, g) => s + g.netto, 0);
+  const ust = gruppen.reduce((s, g) => s + g.ust, 0);
+  return { netto, ust, brutto: netto + ust, gruppen };
 }
 
 export function naechsteNummer(kuerzel, jahr, vorhandeneNummern) {
